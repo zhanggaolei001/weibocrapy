@@ -10,9 +10,7 @@ def getHtml(url):
     html=html.replace(r"\/".encode(), r"/".encode())
     return html
 
-def save(filename, links):
-
-    fh = open(filename, 'a')
+def save(dbconn, links):
     for link in links:
         fileLink=''.join(link)
         URIFileName=re.findall(r'(?<=l30zoo1wmz&fn=).*(?=&skiprd)',fileLink)[0]
@@ -22,9 +20,16 @@ def save(filename, links):
         except:
             print('反转码失败')
             fileName=URIFileName
-        fh.write(fileName),fh.write(','),fh.write(fileLink),fh.write('\n')
+        c = dbconn.cursor()
+        try:
+            sqlStr="INSERT INTO File (FILENAME,FILEURL) VALUES (\"%s\",\"%s\")"%(fileName ,fileLink )
+            print(sqlStr)
+            c.execute(sqlStr)
+        except:
+            print('插入失败：'+fileName)
+    dbconn.commit()
+    print('成功插入：'+str(len(links))+'条数据')
 
-    fh.close()
 
 def getScript(html):
     root = etree.HTML(html)
@@ -74,6 +79,18 @@ def getOtherFileFolder(html,count):
 #性能可提高：改为并发执行
 i=0
 conn = sqlite3.connect('test.db')
+print ("Opened database successfully")
+c=conn.cursor()
+conn.commit()
+try:
+    c.execute('''CREATE TABLE File 
+                (FILENAME TEXT PRIMARY KEY NOT NULL,
+                FILEURL TEXT NOT NULL);''')
+    conn.commit()
+except sqlite3.OperationalError:
+    print('table File already exists')
+
+
 while len(listToBeCrap)>0:
     i+=1
     print('待爬取URL数量：' + str(len(listToBeCrap)) + '个')
@@ -92,5 +109,5 @@ while len(listToBeCrap)>0:
         for folderUrl in newFolderUrl:
             if not (listToBeCrap.__contains__(folderUrl) or (crappedList.__contains__(folderUrl))):
                 listToBeCrap.append(folderUrl)
-
-    save('UrlListResult.csv', urlList)
+    save(conn, urlList)
+conn.close()
